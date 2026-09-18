@@ -56,7 +56,7 @@ window.AccountAPI = {
   clearClientData() {
     try {
       const keys = [
-        'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
+        'gd_settings', 'gd_mod_menu', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
         'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
         'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
         'created_levels', 'iconMainColor', 'iconSecondaryColor',
@@ -119,7 +119,7 @@ window.AccountAPI = {
 
   collectLocalData() {
     const keys = [
-      'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
+      'gd_settings', 'gd_mod_menu', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
       'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
       'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
       'created_levels', 'iconMainColor', 'iconSecondaryColor',
@@ -147,7 +147,7 @@ window.AccountAPI = {
   applyLocalData(save) {
     if (!save) return;
     const keys = [
-      'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
+      'gd_settings', 'gd_mod_menu', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
       'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
       'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
       'created_levels', 'iconMainColor', 'iconSecondaryColor',
