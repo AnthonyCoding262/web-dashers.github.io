@@ -57,7 +57,9 @@ window.AccountAPI = {
     try {
       const keys = [
         'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
-        'gd_completedLevels', 'created_levels', 'iconMainColor', 'iconSecondaryColor',
+        'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
+        'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
+        'created_levels', 'iconMainColor', 'iconSecondaryColor',
         'iconCurrentPlayer', 'iconCurrentShip', 'iconCurrentBall', 'iconCurrentWave',
         'iconCurrentSpider', 'iconCurrentBird', 'userMusicVol', 'userSfxVol',
         'menuMusicEnabled',
@@ -67,7 +69,8 @@ window.AccountAPI = {
       }
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('bestPercent_') || key.startsWith('practiceBestPercent_'))) {
+        if (key && (key.startsWith('bestPercent_') || key.startsWith('practiceBestPercent_') ||
+          key.startsWith('gd_secretCoins_') || key.startsWith('gd_userCoins_'))) {
           localStorage.removeItem(key);
         }
       }
@@ -117,7 +120,9 @@ window.AccountAPI = {
   collectLocalData() {
     const keys = [
       'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
-      'gd_completedLevels', 'created_levels', 'iconMainColor', 'iconSecondaryColor',
+      'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
+      'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
+      'created_levels', 'iconMainColor', 'iconSecondaryColor',
       'iconCurrentPlayer', 'iconCurrentShip', 'iconCurrentBall', 'iconCurrentWave',
       'iconCurrentSpider', 'iconCurrentBird', 'userMusicVol', 'userSfxVol',
       'menuMusicEnabled',
@@ -130,7 +135,8 @@ window.AccountAPI = {
     const bestPercents = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith('bestPercent_') || k.startsWith('practiceBestPercent_'))) {
+      if (k && (k.startsWith('bestPercent_') || k.startsWith('practiceBestPercent_') ||
+        k.startsWith('gd_secretCoins_') || k.startsWith('gd_userCoins_'))) {
         bestPercents[k] = localStorage.getItem(k);
       }
     }
@@ -142,7 +148,9 @@ window.AccountAPI = {
     if (!save) return;
     const keys = [
       'gd_settings', 'gd_totalAttempts', 'gd_totalJumps', 'gd_totalDeaths',
-      'gd_completedLevels', 'created_levels', 'iconMainColor', 'iconSecondaryColor',
+      'gd_completedLevels', 'gd_completedSet', 'gd_completedOnlineLevels',
+      'gd_totalsecretcoins', 'gd_totalusercoins', 'gd_soClose',
+      'created_levels', 'iconMainColor', 'iconSecondaryColor',
       'iconCurrentPlayer', 'iconCurrentShip', 'iconCurrentBall', 'iconCurrentWave',
       'iconCurrentSpider', 'iconCurrentBird', 'userMusicVol', 'userSfxVol',
       'menuMusicEnabled',

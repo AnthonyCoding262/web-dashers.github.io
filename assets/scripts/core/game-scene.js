@@ -523,74 +523,11 @@ class GameScene extends Phaser.Scene {
     this._player.setShipVisible(false);
     this._player.setBallVisible(false);
     this._logo = this.add.image(0, 100, "GJ_WebSheet", "GJ_logo_001.png").setScrollFactor(0).setDepth(30).setScale(1.2);
-    this._robLogo = this.add.image(110, 595, "GJ_WebSheet", "RobTopLogoBig_001.png").setScrollFactor(0).setDepth(30).setScale(0.525).setInteractive();
-    this._makeBouncyButton(this._robLogo, 0.525, () => {
-      window.open("https://geometrydash.com", "_blank");
-    }, () => this._menuActive);
-    const _socialIconDefs = [
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 0 },
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 1 },
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 2 },
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 3 },
-
-      { frame: "gj_twIcon_001.png",      url: "https://x.com/rohanis0000gd",                          angle: 0, flipX: false, row: 1, col: 0 },
-      { frame: "gj_ytIcon_001.png",      url: "https://www.youtube.com/@rohanis0000gd",               angle: 0,                row: 1, col: 1 },
-      { frame: "gj_tiktokIcon_001.png",  url: "https://www.tiktok.com/@rohanis00000",                 angle: 0, flipX: false, row: 1, col: 2 },
-      { frame: "gj_githubIcon_001.png",  url: "https://github.com/web-dashers/web-dashers.github.io", angle: 0,                row: 1, col: 3 },
-
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 0 },
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 1 },
-      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 2 },
-      { frame: "gj_discordIcon_001.png", url: "https://discord.gg/TfEzAVWPSJ",                        angle: 0,               row: 2, col: 3 },
-
-
-      //{ frame: "gj_instaIcon_001.png",   url: "https://www.instagram.com/",                           angle: -90, flipX: true, row: 1, col: 3 },
-      //{ frame: "gj_twitchIcon_001.png",  url: "https://www.twitch.tv/",                               angle: -90, flipX: true, row: 0, col: 0 },
-      //{ frame: "gj_fbIcon_001.png",      url: "https://www.facebook.com/",                            angle: 0,                row: 0, col: 0 },
-      //{ frame: "gj_rdIcon_001.png",      url: "https://www.reddit.com/r/geometrydash/",               angle: -90, flipX: true, row: 0, col: 0 },
-
-    ];
-    const _socialScale = 0.75;
-    this._socialIcons = _socialIconDefs.map((def, index) => {
-    const icon = this.add.image(0, 0, "GJ_GameSheet03", def.frame)
-      .setScrollFactor(0)
-      .setDepth(30)
-      .setScale(_socialScale)
-      .setAngle(def.angle)
-      .setFlipX(!!def.flipX);
-
-    if (!def.frame || def.frame.trim() === "") {
-      icon.setVisible(false);
-      icon.setActive(false);
-      return icon; 
-    }
-    icon.setInteractive();
-    this._makeBouncyButton(icon, _socialScale, () => {
-      window.open(def.url, "_blank");
-    }, () => this._menuActive);
-
-    return icon;
-  });
-
-    this._copyrightText = this.add.text(0, 630, "© 2026 RobTop Games · geometrydash.com", {
-      fontSize: "14px",
-      color: "#ffffff",
-      fontFamily: "Arial"
-    }).setOrigin(1, 1).setScrollFactor(0).setDepth(30).setAlpha(0.3);
-    this._tryMeImg = this.add.image(0, 150, "GJ_MenuBeta").setScrollFactor(0).setDepth(30).setScale(0.75);
+    this._robLogo = null;
+    this._socialIcons = [];
+    this._copyrightText = null;
+    this._tryMeImg = null;
     this._downloadBtns = [];
-    const _0x4fc67f = [
-    {
-      key: "GJ_moreGamesBtn_001",
-      url: "https://pinkdev.d13qic2f6zga3.amplifyapp.com"
-    }];
-    for (let _0xfeaf5c = 0; _0xfeaf5c < _0x4fc67f.length; _0xfeaf5c++) {
-      const _0x1ce2a6 = _0x4fc67f[_0xfeaf5c];
-      const _0x6bf69f = 1 / 1.5;
-      const _0x1d293f = this.add.image(0, 0, "GJ_GameSheet04", _0x1ce2a6.key + ".png").setScrollFactor(0).setDepth(30).setScale(1).setInteractive();
-      this._makeBouncyButton(_0x1d293f, 1, () => window.open(_0x1ce2a6.url, "_blank"), () => this._menuActive);
-      this._downloadBtns.push(_0x1d293f);
-    }
     const _0x28fa5b = this.scale.isFullscreen;
 this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFullscreenOff_001.png" : "toggleFullscreenOn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
     this._expandHitArea(this._menuFsBtn, 1.5);
@@ -600,16 +537,8 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
       this._expandHitArea(this._menuFsBtn, 1.5);
       this._toggleFullscreen();
     }, () => this._menuActive);
-    this._menuInfoBtn = this.add.image(screenWidth + 20, 33, "GJ_GameSheet03", "communityCreditsBtn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
-    this._expandHitArea(this._menuInfoBtn, 1.5);
-    this._makeBouncyButton(this._menuInfoBtn, 0.64, () => {
-      this._buildInfoPopup();
-    }, () => this._menuActive && !this._infoPopup);
-this._menuUpdateLogBtn = this.add.image(screenWidth - 30 - 50, 33, "GJ_WebSheet", "GJ_infoIcon_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
-    this._expandHitArea(this._menuUpdateLogBtn, 1.5);
-    this._makeBouncyButton(this._menuUpdateLogBtn, 0.64, () => {
-      this._buildUpdateLogPopup();
-    }, () => this._menuActive && !this._updateLogPopup);
+    this._menuInfoBtn = null;
+    this._menuUpdateLogBtn = null;
     this._menuSettingsBtn = this.add.image(centerX + 92, screenHeight - 90, "GJ_GameSheet03", "GJ_optionsBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._expandHitArea(this._menuSettingsBtn, 1);
     this._makeBouncyButton(this._menuSettingsBtn, 1, () => {
@@ -620,10 +549,11 @@ this._menuUpdateLogBtn = this.add.image(screenWidth - 30 - 50, 33, "GJ_WebSheet"
     this._makeBouncyButton(this._menuStatsBtn, 1, () => {
       this._showStatsScreen();
     }, () => this._menuActive);
-    this._menuAchievementsBtn = this.add.image(centerX - 12, screenHeight - 90, "GJ_GameSheet03", "GJ_achBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setTint(0x666666);
+    this._menuAchievementsBtn = this.add.image(centerX - 12, screenHeight - 90, "GJ_GameSheet03", "GJ_achBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._expandHitArea(this._menuAchievementsBtn, 1);
     this._makeBouncyButton(this._menuAchievementsBtn, 1, () => {
-    }, () => this._menuActive);
+      this._showAchievementsScreen();
+    }, () => this._menuActive && !this._achievementsLayerInternal);
     this._menuNewgroundsBtn = this.add.image(centerX + 312, screenHeight - 90, "GJ_GameSheet03", "GJ_ngBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._expandHitArea(this._menuNewgroundsBtn, 1);
     this._makeBouncyButton(this._menuNewgroundsBtn, 1, () => {
@@ -3949,12 +3879,8 @@ this._menuUpdateLogBtn = this.add.image(screenWidth - 30 - 50, 33, "GJ_WebSheet"
     } else if (this._audio.isplaying() && !shouldPlayMenuMusic) {
       this._audio.stopMusic();
     }
-    if (!window.updateLogShown) {
-      this._buildUpdateLogPopup();
-      window.updateLogShown = true;
-    }
     if (window.levelID) {
-        this._openSearchMenu();
+      this._openSearchMenu();
     }
     if (this.game.registry.get("autoStartGame")) {
       if (!window.settingsMap) {
@@ -8260,6 +8186,10 @@ _showwippopup() {
         let _0x435587 = this._level.endXPos || 6000;
         let _0x169d53 = this._playerWorldX;
         this._lastPercent = Math.min(99, Math.max(0, Math.floor(_0x169d53 / _0x435587 * 100)));
+        const _isMainLevelDeath = Array.isArray(window.allLevels) && window.allLevels.some(level => level?.[2] === window.currentlevel?.[2]);
+        if (!this._practicedMode.practiceMode && _isMainLevelDeath && this._lastPercent > 95) {
+          localStorage.setItem("gd_soClose", "true");
+        }
         if (this._lastPercent > this._bestPercent && !this._practicedMode.practiceMode) {
           this._bestPercent = this._lastPercent;
           localStorage.setItem("bestPercent_" + (window.currentlevel[2] || "level_1"), this._bestPercent);
@@ -9094,6 +9024,27 @@ _applyMirrorEffect() {
         window._completedLevels = completedSet.length;
         localStorage.setItem("gd_completedLevels", window._completedLevels);
       }
+      if (String(levelId).startsWith("online_")) {
+        try {
+          const historyKey = "gd_completedOnlineLevels";
+          const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+          const safeHistory = Array.isArray(history) ? history : [];
+          const levelData = window._onlineReturnToPlayMenu?.lvl || window._selectedLevelData || {};
+          const existing = safeHistory.find(level => String(level?.id) === String(levelId));
+          const record = {
+            id: String(levelId),
+            difficulty: Number.isFinite(Number(levelData.difficulty)) ? Number(levelData.difficulty) : null,
+            stars: Number.isFinite(Number(levelData.stars)) ? Number(levelData.stars) : null
+          };
+          if (existing) {
+            if (record.difficulty !== null) existing.difficulty = record.difficulty;
+            if (record.stars !== null) existing.stars = record.stars;
+          } else {
+            safeHistory.push(record);
+          }
+          localStorage.setItem(historyKey, JSON.stringify(safeHistory));
+        } catch (_error) {}
+      }
     } else {
       this._practiceBestPercent = 100;
       localStorage.setItem("practiceBestPercent_" + (window.currentlevel[2] || "level_1"), 100);
@@ -9793,9 +9744,7 @@ window.open("https://github.com/web-dashers/web-dashers.github.io", "_blank"); }
     _makeSettingsBtn(_sColR, _sRow1Y, "How To Play", _sBtnW2, true, () => { this._buildHowToPlayPopup(); });
     _makeSettingsBtn(_sColL, _sRow2Y, "Options",    _sBtnW2, true,  () => { this._buildSettingsPopup(); });
     _makeSettingsBtn(_sColR, _sRow2Y, "Graphics",   _sBtnW2, false, null);
-    _makeSettingsBtn(_sCol3L, _sRow3Y, "Rate",      _sBtnW3, true, () => { this._redirectRate(); });
     _makeSettingsBtn(_sCol3M, _sRow3Y, "Songs",     _sBtnW3, true, () => { this._hideSettingsScreen(() => this.time.delayedCall(150, () => this._buildsongspopup())); });
-    _makeSettingsBtn(_sCol3R, _sRow3Y, "Help",      _sBtnW3, true, () => { this._hideSettingsScreen(() => this.time.delayedCall(150, () => this._buildhelppopup())); });
 
     const lockIcon = this.add.image(containerX + 535, 30, "GJ_GameSheet03", "GJ_lockGray_001.png").setFlipX(false).setFlipY(false);
     lockIcon.setScale(0.9);
@@ -10035,6 +9984,294 @@ window.open("https://github.com/web-dashers/web-dashers.github.io", "_blank"); }
       onComplete: _0x272eb1
     });
   }
+  _showAchievementsScreen() {
+    if (this._achievementsLayerInternal) return;
+
+    const achievements = Array.isArray(window.allAchievements) ? window.allAchievements : [];
+    const perPage = 10;
+    const pageCount = Math.max(1, Math.ceil(achievements.length / perPage));
+    const cx = screenWidth / 2;
+    const panelWidth = 890;
+    const panelLeft = cx - panelWidth / 2;
+    const panelRight = cx + panelWidth / 2;
+    // Let the scrolling rows continue underneath the opaque horizontal frame
+    // pieces so no strip of the menu background can show through at either edge.
+    const contentTop = 95;
+    const contentBottom = 555;
+    const viewportHeight = contentBottom - contentTop;
+    const rowHeight = viewportHeight / 2.8;
+    const rowLeft = panelLeft + 24;
+    const rowRight = panelRight - 24;
+    const rowWidth = rowRight - rowLeft;
+
+    this._achievementPage = Math.max(0, Math.min(this._achievementPage || 0, pageCount - 1));
+    this._achievementsLayerOverlay = this.add.rectangle(cx, screenHeight / 2, screenWidth, screenHeight, 0x000000, 0)
+      .setScrollFactor(0)
+      .setDepth(220)
+      .setInteractive();
+    this._achievementsLayerInternal = this.add.container(0, -640).setScrollFactor(0).setDepth(221);
+
+    this.tweens.add({
+      targets: this._achievementsLayerOverlay,
+      alpha: 100 / 255,
+      duration: 350
+    });
+    const slide = { progress: 0 };
+    this.tweens.add({
+      targets: slide,
+      progress: 1,
+      duration: 500,
+      ease: "Quad.Out",
+      onUpdate: () => {
+        if (this._achievementsLayerInternal) {
+          this._achievementsLayerInternal.y = slide.progress * 650 - 640;
+        }
+      }
+    });
+
+    const panel = this._achievementsLayerInternal;
+    panel.add(this.add.rectangle(cx, (contentTop + contentBottom) / 2, rowWidth, viewportHeight, 0xac531e));
+
+    const rowsContainer = this.add.container(0, 0);
+    panel.add(rowsContainer);
+    const rowsMaskShape = this.add.graphics().setScrollFactor(0).setVisible(false);
+    const rowsMask = rowsMaskShape.createGeometryMask();
+    rowsContainer.setMask(rowsMask);
+    const updateRowsMask = () => {
+      if (!panel?.active || !rowsMaskShape?.active) return;
+      rowsMaskShape.clear();
+      rowsMaskShape.fillStyle(0xffffff, 1);
+      rowsMaskShape.fillRect(rowLeft, contentTop + panel.y, rowWidth, viewportHeight);
+    };
+    this.events.on("postupdate", updateRowsMask);
+    updateRowsMask();
+    this._achievementVisualCleanup = () => {
+      this.events.off("postupdate", updateRowsMask);
+      rowsContainer.clearMask();
+      rowsMask.destroy();
+      rowsMaskShape.destroy();
+    };
+
+    const topFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_top_001.png");
+    const bottomFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_bottom_001.png");
+    const sideFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_side_001.png");
+    const top = this.add.image(cx, 71, "GJ_WebSheet", "GJ_table_top_001.png");
+    const bottom = this.add.image(cx, 575, "GJ_WebSheet", "GJ_table_bottom_001.png");
+    if (topFrame) top.setScale(panelWidth / topFrame.width, 1);
+    if (bottomFrame) bottom.setScale(panelWidth / bottomFrame.width, 1);
+    panel.add([top, bottom]);
+
+    // The side pieces belong between the header and footer. The horizontal
+    // pieces render after them and cover the small overlap at each join.
+    const sideTop = contentTop + 5;
+    const sideHeight = contentBottom - contentTop - 15;
+    const sideScaleY = sideFrame ? sideHeight / sideFrame.height : 1;
+    panel.add([
+      this.add.image(panelLeft - 22, sideTop, "GJ_WebSheet", "GJ_table_side_001.png").setOrigin(0, 0).setScale(1, sideScaleY),
+      this.add.image(panelRight + 22, sideTop, "GJ_WebSheet", "GJ_table_side_001.png").setOrigin(1, 0).setFlipX(true).setScale(1, sideScaleY)
+    ]);
+
+    panel.add(this.add.bitmapText(cx, 68, "bigFont", "ACHIEVEMENTS", 49).setOrigin(0.5));
+
+    const counterText = this.add.bitmapText(panelRight - 2, 28, "goldFont", "", 31).setOrigin(1, 0.5);
+    panel.add(counterText);
+
+    const backButton = this.add.image(43, 34, "GJ_GameSheet03", "GJ_arrow_03_001.png").setInteractive();
+    panel.add(backButton);
+    this._makeBouncyButton(backButton, 1, () => this._hideAchievementsScreen());
+
+    const previousButton = this.add.image(panelLeft - 52, (contentTop + contentBottom) / 2, "GJ_GameSheet03", "GJ_arrow_01_001.png")
+      .setScale(0.78);
+    const nextButton = this.add.image(panelRight + 52, (contentTop + contentBottom) / 2, "GJ_GameSheet03", "GJ_arrow_01_001.png")
+      .setScale(0.78)
+      .setFlipX(true);
+    const previousHitArea = this.add.rectangle(previousButton.x, previousButton.y, 92, 120, 0x000000, 0).setInteractive();
+    const nextHitArea = this.add.rectangle(nextButton.x, nextButton.y, 92, 120, 0x000000, 0).setInteractive();
+    panel.add([previousButton, nextButton, previousHitArea, nextHitArea]);
+
+    const rowObjects = [];
+    const addRowObject = (object) => {
+      rowsContainer.add(object);
+      rowObjects.push(object);
+      return object;
+    };
+    const clearRows = () => {
+      while (rowObjects.length) {
+        const object = rowObjects.pop();
+        if (object?.destroy) object.destroy();
+      }
+    };
+
+    const fitText = (text, maxWidth) => {
+      if (!text || !maxWidth || text.width <= maxWidth) return;
+      text.setScale(Math.max(0.6, maxWidth / text.width));
+    };
+
+    const renderRewardIcon = (achievement, x, y, completed, showPercent) => {
+      const iconFrame = achievement?.icon?.frame;
+      const frameInfo = iconFrame && typeof getAtlasFrame === "function" ? getAtlasFrame(this, iconFrame) : null;
+      if (!frameInfo) return;
+
+      const targetSize = showPercent ? 68 : 78;
+      const iconY = y + (showPercent ? -10 : 0);
+      const frame = this.textures.getFrame(frameInfo.atlas, frameInfo.frame);
+      const scale = frame ? Math.min(targetSize / frame.width, targetSize / frame.height) : 0.6;
+      const overlayName = iconFrame.replace(/_001\.png$/, "_2_001.png");
+      const overlayInfo = getAtlasFrame(this, overlayName);
+      if (overlayInfo) {
+        addRowObject(this.add.image(x, iconY, overlayInfo.atlas, overlayInfo.frame)
+          .setScale(scale)
+          .setTint(completed ? window.secondaryColor : 0x777777)
+          .setAlpha(completed ? 1 : 0.72));
+      }
+      addRowObject(this.add.image(x, iconY, frameInfo.atlas, frameInfo.frame)
+        .setScale(scale)
+        .setTint(completed ? window.mainColor : 0x777777)
+        .setAlpha(completed ? 1 : 0.72));
+
+      if (!completed) {
+        addRowObject(this.add.image(x, iconY, "GJ_GameSheet03", "GJ_lockGray_001.png").setScale(showPercent ? 0.72 : 0.8));
+      }
+    };
+
+    let scrollOffset = 0;
+    let maxScrollOffset = 0;
+    const applyScroll = () => {
+      rowsContainer.y = -scrollOffset;
+    };
+    const setScroll = (value) => {
+      scrollOffset = Phaser.Math.Clamp(value, 0, maxScrollOffset);
+      applyScroll();
+    };
+
+    const renderPage = (requestedPage) => {
+      this._achievementPage = Math.max(0, Math.min(requestedPage, pageCount - 1));
+      clearRows();
+      const firstIndex = this._achievementPage * perPage;
+      const pageItems = achievements.slice(firstIndex, firstIndex + perPage);
+      const lastIndex = firstIndex + pageItems.length;
+      counterText.setText(`${firstIndex + 1} TO ${lastIndex} OF ${achievements.length}`);
+      maxScrollOffset = Math.max(0, pageItems.length * rowHeight - viewportHeight);
+      setScroll(0);
+
+      previousButton.setVisible(this._achievementPage > 0);
+      nextButton.setVisible(this._achievementPage < pageCount - 1);
+      previousHitArea.setVisible(previousButton.visible).disableInteractive();
+      nextHitArea.setVisible(nextButton.visible).disableInteractive();
+      if (previousButton.visible) previousHitArea.setInteractive();
+      if (nextButton.visible) nextHitArea.setInteractive();
+
+      pageItems.forEach((achievement, index) => {
+        const progress = window.AchievementProgress?.evaluate?.(achievement) || {
+          completed: false,
+          percent: 0,
+          showPercent: false
+        };
+        const rowCenterY = contentTop + index * rowHeight + rowHeight / 2;
+        const iconX = rowLeft + 69;
+        const textX = rowLeft + 137;
+        const textMaxWidth = rowRight - textX - 72;
+
+        addRowObject(this.add.rectangle(cx, rowCenterY, rowWidth, rowHeight,
+          index % 2 === 0 ? 0xac531e : 0xcf6d30));
+        if (index > 0) {
+          addRowObject(this.add.rectangle(cx, contentTop + index * rowHeight, rowWidth, 1.5, 0x54250f, 0.7));
+        }
+
+        renderRewardIcon(achievement, iconX, rowCenterY, progress.completed, progress.showPercent);
+        if (progress.showPercent) {
+          addRowObject(this.add.bitmapText(iconX, rowCenterY + 43, "goldFont", `${progress.percent}%`, 22).setOrigin(0.5));
+        }
+
+        const title = addRowObject(this.add.bitmapText(textX, rowCenterY - 28, "goldFont", achievement.name, 31).setOrigin(0, 0.5));
+        fitText(title, textMaxWidth);
+        const description = addRowObject(this.add.bitmapText(textX, rowCenterY + 20, "bigFont", achievement.description, 25).setOrigin(0, 0.5));
+        fitText(description, textMaxWidth);
+
+        if (progress.completed) {
+          addRowObject(this.add.image(rowRight - 35, rowCenterY, "GJ_GameSheet03", "GJ_checkOn_001.png").setScale(0.68));
+        }
+      });
+    };
+
+    this._makeCompositeBouncyButton(previousHitArea, previousButton, 0.78, () => renderPage(this._achievementPage - 1));
+    this._makeCompositeBouncyButton(nextHitArea, nextButton, 0.78, () => renderPage(this._achievementPage + 1));
+
+    const isInsideViewport = (pointer) => {
+      const localY = pointer.y - panel.y;
+      return pointer.x >= rowLeft && pointer.x <= rowRight && localY >= contentTop && localY <= contentBottom;
+    };
+    const onWheel = (pointer, _gameObjects, _deltaX, deltaY) => {
+      if (!deltaY || !isInsideViewport(pointer)) return;
+      setScroll(scrollOffset + deltaY * 0.65);
+    };
+    let dragStartY = null;
+    let dragStartScroll = 0;
+    const onPointerDown = (pointer) => {
+      if (!isInsideViewport(pointer)) return;
+      dragStartY = pointer.y;
+      dragStartScroll = scrollOffset;
+    };
+    const onPointerMove = (pointer) => {
+      if (dragStartY === null || !pointer.isDown) return;
+      setScroll(dragStartScroll + dragStartY - pointer.y);
+    };
+    const onPointerUp = () => {
+      dragStartY = null;
+    };
+    const onKeyDown = (event) => {
+      if (!this._achievementsLayerInternal) return;
+      if (event.key === "Escape") this._hideAchievementsScreen();
+      if (event.key === "ArrowLeft" || event.key === "PageUp") renderPage(this._achievementPage - 1);
+      if (event.key === "ArrowRight" || event.key === "PageDown") renderPage(this._achievementPage + 1);
+    };
+
+    this.input.on("wheel", onWheel);
+    this.input.on("pointerdown", onPointerDown);
+    this.input.on("pointermove", onPointerMove);
+    this.input.on("pointerup", onPointerUp);
+    this.input.keyboard?.on("keydown", onKeyDown);
+    this._achievementInputCleanup = () => {
+      this.input.off("wheel", onWheel);
+      this.input.off("pointerdown", onPointerDown);
+      this.input.off("pointermove", onPointerMove);
+      this.input.off("pointerup", onPointerUp);
+      this.input.keyboard?.off("keydown", onKeyDown);
+    };
+
+    renderPage(this._achievementPage);
+  }
+
+  _hideAchievementsScreen() {
+    if (!this._achievementsLayerInternal || this._achievementsClosing) return;
+    this._achievementsClosing = true;
+    this._achievementInputCleanup?.();
+    this._achievementInputCleanup = null;
+
+    const overlay = this._achievementsLayerOverlay;
+    const panel = this._achievementsLayerInternal;
+    this.tweens.add({ targets: overlay, alpha: 0, duration: 300 });
+    const slide = { progress: 1 };
+    this.tweens.add({
+      targets: slide,
+      progress: 0,
+      duration: 420,
+      ease: "Quad.In",
+      onUpdate: () => {
+        if (panel?.active) panel.y = slide.progress * 650 - 640;
+      },
+      onComplete: () => {
+        this._achievementVisualCleanup?.();
+        this._achievementVisualCleanup = null;
+        overlay?.destroy();
+        panel?.destroy(true);
+        if (this._achievementsLayerOverlay === overlay) this._achievementsLayerOverlay = null;
+        if (this._achievementsLayerInternal === panel) this._achievementsLayerInternal = null;
+        this._achievementsClosing = false;
+      }
+    });
+  }
+
   _showStatsScreen() {
     if (this._pauseBtn) {
       this.tweens.add({
