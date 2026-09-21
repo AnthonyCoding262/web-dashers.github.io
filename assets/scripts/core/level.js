@@ -867,36 +867,6 @@ window.LevelObject = class LevelObject {
     return [...new Set(values)];
   }
 
-  _getTeleportGroupTarget(levelObj) {
-    const targetGroup = this._parseSingleTriggerGroupId(
-      levelObj?._raw?.[51] ?? levelObj?._raw?.["51"] ?? 0
-    );
-    if (!targetGroup) return null;
-
-    const levelObjects = Array.isArray(this._sourceLevelObjects)
-      ? this._sourceLevelObjects
-      : (Array.isArray(window.levelObjects) ? window.levelObjects : []);
-    const groupedObjects = levelObjects.filter(candidate =>
-      candidate &&
-      candidate !== levelObj &&
-      this._getLevelObjectGroupIds(candidate).includes(targetGroup)
-    );
-
-    // Geometry Dash 2.2 uses object 2064 as the visible orange destination.
-    // Fall back to another grouped object so portals authored against a plain
-    // target object still have usable coordinates.
-    const targetObject = groupedObjects.find(candidate => parseInt(candidate.id ?? 0, 10) === 2064)
-      || groupedObjects.find(candidate => parseInt(candidate.id ?? 0, 10) !== 2902)
-      || groupedObjects[0];
-    if (!targetObject) return null;
-
-    const x = Number(targetObject.x ?? targetObject._raw?.[2] ?? targetObject._raw?.["2"]);
-    const y = Number(targetObject.y ?? targetObject._raw?.[3] ?? targetObject._raw?.["3"]);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-
-    return { targetGroup, x: x * 2, y: y * 2 };
-  }
-
   _parseSingleTriggerGroupId(value, fallback = 0) {
     const parts = String(value ?? "")
       .split(/[,.]/)
@@ -2961,7 +2931,6 @@ window.LevelObject = class LevelObject {
         745: "robot",
         1331: "spider",
         747: "teleport",
-        2902: "teleport_group",
         286: "dual_on",
         287: "dual_off"
       }[levelObj.id];
@@ -2980,7 +2949,6 @@ window.LevelObject = class LevelObject {
         robot: "portal_robot",
         spider: "portal_spider",
         teleport: "portal_teleport",
-        teleport_group: "portal_teleport",
         mirrora: "portal_mirror_on",
         mirrorb: "portal_mirror_off",
         shrink: "portal_mini_on",
@@ -3001,17 +2969,10 @@ window.LevelObject = class LevelObject {
         collider.portalX = worldX;
         collider.portalY = worldY;
         if (isTeleportPortal) {
-          if (portalSub === "teleport_group") {
-            const target = this._getTeleportGroupTarget(levelObj);
-            collider.teleportTargetGroup = target?.targetGroup || 0;
-            collider.teleportTargetX = worldX;
-            collider.teleportTargetY = target?.y;
-          } else {
-            const yOffset = this._getTeleportPortalYOffset(levelObj);
-            collider.teleportTargetX = worldX;
-            collider.teleportTargetY = worldY + yOffset * 2;
-            collider.teleportYOffset = yOffset * 2;
-          }
+          const yOffset = this._getTeleportPortalYOffset(levelObj);
+          collider.teleportTargetX = worldX;
+          collider.teleportTargetY = worldY + yOffset * 2;
+          collider.teleportYOffset = yOffset * 2;
         }
         registerCollider(collider);
         this.objects.push(collider);
