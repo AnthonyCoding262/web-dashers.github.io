@@ -441,7 +441,7 @@ class PlayerObject {
     this._hitboxTrail = [];
     this._lastCollisionWorldX = null;
     this._lastCollisionWorldY = null;
-    this._ignoreTeleportUntilClear = false;
+    this._respawnTeleportCheckPending = false;
     this._invertPlayerColors = false;
     this._deathBurstEmitter = null;
     this._deathFlashGraphics = null;
@@ -4189,6 +4189,12 @@ if (this.p.isFlying || this.p.isUfo) {
     const playersY = this.p.y;
     const playersLastY = this.p.lastY;
     const previousCollisionWorldY = Number.isFinite(this._lastCollisionWorldY) ? this._lastCollisionWorldY : playersLastY;
+    // On the first collision step after respawn, also catch a portal just
+    // behind the player's rear edge. Normal movement keeps its usual hitbox.
+    const respawnTeleportCheck = this._respawnTeleportCheckPending;
+    this._respawnTeleportCheckPending = false;
+    const teleportPreviousX = respawnTeleportCheck ? pieceWidth - playerSize : previousWorldX;
+    const teleportPreviousY = respawnTeleportCheck ? playersY : previousCollisionWorldY;
     const gamemodeAddition = this.p.isWave ? 0 : (this.p.isFlying || this.p.isUfo ? 12 : 20);
     this.p.collideTop = 0;
     this.p.collideBottom = 0;
@@ -4201,7 +4207,6 @@ if (this.p.isFlying || this.p.isUfo) {
     let _boostedThisStep = false;
     let _teleportedThisStep = false;
     let _orbInputConsumedThisStep = false;
-    let _touchingTeleportDuringRespawnIgnore = false;
     let bestSlopeCandidate = null;
     let bestSlopeGameObj = null;
     const preferHighestSlopeSurface = !this.p.gravityFlipped;
@@ -4238,22 +4243,16 @@ if (this.p.isFlying || this.p.isUfo) {
       }
       const _colType = gameObj.type;
       if (!_broadPhaseHit && _colType === "portal_teleport") {
-        _broadPhaseHit = this._isPlayerTouchingPortalHitbox(gameObj, pieceWidth, playersY, _broadSize, previousWorldX, previousCollisionWorldY);
+        _broadPhaseHit = this._isPlayerTouchingPortalHitbox(gameObj, pieceWidth, playersY, _broadSize, teleportPreviousX, teleportPreviousY);
       }
       if (_broadPhaseHit) {
         if (!_hasCircleHitbox && this._isPortalCollisionType(_colType)) {
           _broadPhaseHit = _colType === "portal_teleport"
-            ? this._isPlayerTouchingPortalHitbox(gameObj, pieceWidth, playersY, _broadSize, previousWorldX, previousCollisionWorldY)
+            ? this._isPlayerTouchingPortalHitbox(gameObj, pieceWidth, playersY, _broadSize, teleportPreviousX, teleportPreviousY)
             : this._isPlayerTouchingPortalHitbox(gameObj, pieceWidth, playersY, _broadSize);
           if (!_broadPhaseHit) continue;
         }
-        if (_colType === "portal_teleport" && this._ignoreTeleportUntilClear) {
-          _touchingTeleportDuringRespawnIgnore = true;
-          this._setObjectActivated(gameObj, true);
-          continue;
-        }
-        if (this.p.ignorePortals && (_colType.startsWith("portal_") || _colType === "speed")) {
-          if (_colType === "portal_teleport") _touchingTeleportDuringRespawnIgnore = true;
+        if (this.p.ignorePortals && _colType !== "portal_teleport" && (_colType.startsWith("portal_") || _colType === "speed")) {
           this._setObjectActivated(gameObj, true);
           continue;
         }
@@ -5053,9 +5052,6 @@ if (this.p.isFlying || this.p.isUfo) {
       this.killPlayer();
       return;
     }
-    if (this._ignoreTeleportUntilClear && !_touchingTeleportDuringRespawnIgnore) {
-      this._ignoreTeleportUntilClear = false;
-    }
     if (_snappedSlopeThisFrame) {
       this._slopeContactFrames = this._slopeRiding ? (this._slopeContactFrames || 0) + 1 : 0;
       this._slopeRiding = true;
@@ -5444,7 +5440,7 @@ if (this.p.isFlying || this.p.isUfo) {
     const _resetWorldY = Number(this.p?.y);
     this._lastCollisionWorldX = Number.isFinite(_resetWorldX) ? _resetWorldX : null;
     this._lastCollisionWorldY = Number.isFinite(_resetWorldY) ? _resetWorldY : null;
-    this._ignoreTeleportUntilClear = true;
+    this._respawnTeleportCheckPending = true;
     this.setCubeVisible(true);
     this.setShipVisible(false);
     this.setBallVisible(false);
