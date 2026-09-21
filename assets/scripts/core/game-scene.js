@@ -131,17 +131,12 @@ class MacroBot {
     this.recording = false;
     this.playing = false;
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.frames = [];
-    this.inputs = [];
-    this.lastFrame = 0;
-    this.endFrame = 0;
     this.currentFrameState = null;
     this.meta = {
       author: "Web Dashers",
       level: "",
-      version: 1,
-      framerate: 60,
+      version: 2,
     };
   }
 
@@ -245,8 +240,7 @@ class MacroBot {
     this.meta = {
       ...this.meta,
       ...meta,
-      version: 1,
-      framerate: 60
+      version: 2
     };
   }
 
@@ -257,60 +251,42 @@ class MacroBot {
 
   clearRecording() {
     this.frames = [];
-    this.inputs = [];
-    this.lastFrame = 0;
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
   }
 
   recordFrame(currentFrame) {
     if (!this.recording) return;
-    this.lastFrame = Math.max(this.lastFrame, Math.max(0, Math.trunc(currentFrame || 0)));
-  }
-
-  recordInput(currentFrame, down, player2 = false, button = 1) {
-    if (!this.recording) return;
-    const input = {
-      frame: Math.max(0, Math.trunc(currentFrame || 0)),
-      button: Math.max(1, Math.min(3, Math.trunc(button || 1))),
-      player2: !!player2,
-      down: !!down
-    };
-    const last = this.inputs[this.inputs.length - 1];
-    if (last && last.frame === input.frame && last.button === input.button && last.player2 === input.player2 && last.down === input.down) return;
-    this.inputs.push(input);
-    this.lastFrame = Math.max(this.lastFrame, input.frame);
+    const frameState = this._captureFrame(currentFrame);
+    const last = this.frames[this.frames.length - 1];
+    if (last && last.frame === currentFrame) {
+      this.frames[this.frames.length - 1] = frameState;
+    } else {
+      this.frames.push(frameState);
+    }
   }
 
   rollbackRecording(currentFrame) {
     this.frames = this.frames.filter(frame => (frame.frame ?? 0) <= currentFrame);
-    this.inputs = this.inputs.filter(input => (input.frame ?? 0) <= currentFrame);
-    this.lastFrame = Math.max(0, Math.trunc(currentFrame || 0));
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
   }
 
   clearPlayback() {
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
   }
 
   rollbackPlayback(currentFrame) {
+    if (!this.frames.length) return;
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
 
-    while (this.cursor < this.inputs.length && (this.inputs[this.cursor].frame ?? 0) <= currentFrame) {
+    while (this.cursor < this.frames.length && (this.frames[this.cursor].frame ?? 0) <= currentFrame) {
       this.cursor++;
     }
-    while (this.snapshotCursor < this.frames.length && (this.frames[this.snapshotCursor].frame ?? 0) <= currentFrame) {
-      this.snapshotCursor++;
-    }
 
-    const index = Math.max(0, this.snapshotCursor - 1);
+    const index = Math.max(0, this.cursor - 1);
     const frameState = this.frames[index];
     if (frameState) this._applyFrame(frameState);
   }
@@ -323,59 +299,39 @@ class MacroBot {
 
     this.meta = {
       ...this.meta,
-      ...(macro?.meta || {})
+      ...(macro || {})
     };
 
     this.frames = Array.isArray(macro?.frames) ? macro.frames.slice() : [];
     this.frames.sort((a, b) => (a.frame ?? 0) - (b.frame ?? 0));
-    this.inputs = window.GDRCodec?.normalizeInputs?.(macro?.inputs) || [];
-    this.endFrame = Math.max(
-      Math.max(0, Math.trunc(Number(macro?.durationFrames) || 0)),
-      this.inputs.at(-1)?.frame || 0,
-      this.frames.at(-1)?.frame || 0
-    );
 
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
 
-    if (!this.inputs.length && !this.frames.length) {
-      this.playing = false;
+    if (Array.isArray(macro?.inputs) && !this.frames.length) {
+      console.warn("Outdated macro file");
     }
   }
 
   stopPlayback() {
     this.playing = false;
     this.cursor = 0;
-    this.snapshotCursor = 0;
     this.currentFrameState = null;
-    this.scene?._releaseButton?.(true);
   }
 
   step(currentFrame) {
-    if (!this.playing) return;
-
-    const applied = new Set();
-    while (this.cursor < this.inputs.length && (this.inputs[this.cursor].frame ?? 0) <= currentFrame) {
-      const input = this.inputs[this.cursor++];
-      if ((input.button || 1) !== 1) continue;
-      const signature = `${input.frame}:${input.down}`;
-      if (applied.has(signature)) continue;
-      applied.add(signature);
-      if (input.down) this.scene?._pushButton?.(true);
-      else this.scene?._releaseButton?.(true);
-    }
+    if (!this.playing || !this.frames.length) return;
 
     while (
-      this.snapshotCursor < this.frames.length &&
-      (this.frames[this.snapshotCursor].frame ?? 0) <= currentFrame
+      this.cursor < this.frames.length &&
+      (this.frames[this.cursor].frame ?? 0) <= currentFrame
     ) {
-      this.currentFrameState = this.frames[this.snapshotCursor++];
+      this.currentFrameState = this.frames[this.cursor++];
     }
 
-    if (this.cursor >= this.inputs.length && this.snapshotCursor >= this.frames.length && currentFrame >= this.endFrame) {
+    if (this.cursor >= this.frames.length) {
       this.stopPlayback();
-      return;
+      return; 
     }
 
     if (this.currentFrameState) {
@@ -390,43 +346,17 @@ class MacroBot {
 
   exportObject() {
     return {
-      meta: { ...this.meta },
-      inputs: this.inputs.slice(),
-      durationFrames: this.lastFrame || this.endFrame,
+      meta: this.meta,
       frames: this.frames.slice()
     };
   }
 
-  _standardReplay() {
-    const levelIdValue = String(this.meta.level || window.currentlevel?.[2] || "");
-    const levelIdMatch = levelIdValue.match(/\d+/);
-    const framerate = 60;
-    const finalFrame = Math.max(this.lastFrame, this.endFrame, this.inputs.at(-1)?.frame || 0);
-    return {
-      author: this.meta.author || "Web Dashers",
-      description: "Recorded with Web Dashers",
-      duration: finalFrame / framerate,
-      gameVersion: 22074,
-      gameVersionLegacy: 2.2074,
-      framerate,
-      seed: 0,
-      coins: 0,
-      ldm: !!window.enableLDM,
-      platformer: false,
-      bot: { name: "Web Dashers", version: 1 },
-      level: {
-        id: levelIdMatch ? Number(levelIdMatch[0]) : 0,
-        name: this.meta.levelName || window.currentlevel?.[1] || levelIdValue
-      },
-      inputs: this.inputs.slice(),
-      deaths: []
-    };
+  exportString(pretty = false) {
+    return JSON.stringify(this.exportObject(), null, pretty ? 2 : 0);
   }
 
-  download(filename = "macro.gdr2", format = "gdr2") {
-    if (!window.GDRCodec) throw new Error("GDR codec is unavailable");
-    const bytes = format === "gdr" ? window.GDRCodec.encodeGDR1(this._standardReplay()) : window.GDRCodec.encodeGDR2(this._standardReplay());
-    const blob = new Blob([bytes], { type: "application/octet-stream" });
+  download(filename = "macro.wbgdr2") {
+    const blob = new Blob([this.exportString(true)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -442,36 +372,15 @@ class MacroBot {
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          if (!window.GDRCodec) throw new Error("GDR codec is unavailable");
-          const replay = window.GDRCodec.decode(event.target.result);
-          const sourceRate = Math.max(1, Number(replay.framerate) || 60);
-          const inputs = window.GDRCodec.normalizeInputs(replay.inputs).map(input => ({
-            ...input,
-            frame: Math.max(0, Math.round(input.frame * 60 / sourceRate))
-          }));
-          resolve({
-            meta: {
-              author: replay.author || "",
-              name: replay.level?.name || file.name.replace(/\.[^/.]+$/, ""),
-              level: replay.level?.id || "",
-              levelName: replay.level?.name || "",
-              sourceFormat: replay.format,
-              sourceFramerate: sourceRate,
-              framerate: 60
-            },
-            inputs,
-            durationFrames: Math.max(
-              Math.round((Number(replay.duration) || 0) * 60),
-              inputs.at(-1)?.frame || 0
-            ),
-            frames: []
-          });
+          const text = String(event.target.result || "");
+          const macro = JSON.parse(text);
+          resolve(macro);
         } catch (err) {
           reject(err);
         }
       };
       reader.onerror = () => reject(reader.error || new Error("Failed to read macro file"));
-      reader.readAsArrayBuffer(file);
+      reader.readAsText(file);
     });
   }
 }
@@ -614,11 +523,74 @@ class GameScene extends Phaser.Scene {
     this._player.setShipVisible(false);
     this._player.setBallVisible(false);
     this._logo = this.add.image(0, 100, "GJ_WebSheet", "GJ_logo_001.png").setScrollFactor(0).setDepth(30).setScale(1.2);
-    this._robLogo = null;
-    this._socialIcons = [];
-    this._copyrightText = null;
-    this._tryMeImg = null;
+    this._robLogo = this.add.image(110, 595, "GJ_WebSheet", "RobTopLogoBig_001.png").setScrollFactor(0).setDepth(30).setScale(0.525).setInteractive();
+    this._makeBouncyButton(this._robLogo, 0.525, () => {
+      window.open("https://geometrydash.com", "_blank");
+    }, () => this._menuActive);
+    const _socialIconDefs = [
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 0 },
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 1 },
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 2 },
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 0, col: 3 },
+
+      { frame: "gj_twIcon_001.png",      url: "https://x.com/rohanis0000gd",                          angle: 0, flipX: false, row: 1, col: 0 },
+      { frame: "gj_ytIcon_001.png",      url: "https://www.youtube.com/@rohanis0000gd",               angle: 0,                row: 1, col: 1 },
+      { frame: "gj_tiktokIcon_001.png",  url: "https://www.tiktok.com/@rohanis00000",                 angle: 0, flipX: false, row: 1, col: 2 },
+      { frame: "gj_githubIcon_001.png",  url: "https://github.com/web-dashers/web-dashers.github.io", angle: 0,                row: 1, col: 3 },
+
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 0 },
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 1 },
+      {frame:  "",                       url: "",                                                     angle: 0,                row: 2, col: 2 },
+      { frame: "gj_discordIcon_001.png", url: "https://discord.gg/TfEzAVWPSJ",                        angle: 0,               row: 2, col: 3 },
+
+
+      //{ frame: "gj_instaIcon_001.png",   url: "https://www.instagram.com/",                           angle: -90, flipX: true, row: 1, col: 3 },
+      //{ frame: "gj_twitchIcon_001.png",  url: "https://www.twitch.tv/",                               angle: -90, flipX: true, row: 0, col: 0 },
+      //{ frame: "gj_fbIcon_001.png",      url: "https://www.facebook.com/",                            angle: 0,                row: 0, col: 0 },
+      //{ frame: "gj_rdIcon_001.png",      url: "https://www.reddit.com/r/geometrydash/",               angle: -90, flipX: true, row: 0, col: 0 },
+
+    ];
+    const _socialScale = 0.75;
+    this._socialIcons = _socialIconDefs.map((def, index) => {
+    const icon = this.add.image(0, 0, "GJ_GameSheet03", def.frame)
+      .setScrollFactor(0)
+      .setDepth(30)
+      .setScale(_socialScale)
+      .setAngle(def.angle)
+      .setFlipX(!!def.flipX);
+
+    if (!def.frame || def.frame.trim() === "") {
+      icon.setVisible(false);
+      icon.setActive(false);
+      return icon; 
+    }
+    icon.setInteractive();
+    this._makeBouncyButton(icon, _socialScale, () => {
+      window.open(def.url, "_blank");
+    }, () => this._menuActive);
+
+    return icon;
+  });
+
+    this._copyrightText = this.add.text(0, 630, "© 2026 RobTop Games · geometrydash.com", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontFamily: "Arial"
+    }).setOrigin(1, 1).setScrollFactor(0).setDepth(30).setAlpha(0.3);
+    this._tryMeImg = this.add.image(0, 150, "GJ_MenuBeta").setScrollFactor(0).setDepth(30).setScale(0.75);
     this._downloadBtns = [];
+    const _0x4fc67f = [
+    {
+      key: "GJ_moreGamesBtn_001",
+      url: "https://pinkdev.d13qic2f6zga3.amplifyapp.com"
+    }];
+    for (let _0xfeaf5c = 0; _0xfeaf5c < _0x4fc67f.length; _0xfeaf5c++) {
+      const _0x1ce2a6 = _0x4fc67f[_0xfeaf5c];
+      const _0x6bf69f = 1 / 1.5;
+      const _0x1d293f = this.add.image(0, 0, "GJ_GameSheet04", _0x1ce2a6.key + ".png").setScrollFactor(0).setDepth(30).setScale(1).setInteractive();
+      this._makeBouncyButton(_0x1d293f, 1, () => window.open(_0x1ce2a6.url, "_blank"), () => this._menuActive);
+      this._downloadBtns.push(_0x1d293f);
+    }
     const _0x28fa5b = this.scale.isFullscreen;
 this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFullscreenOff_001.png" : "toggleFullscreenOn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
     this._expandHitArea(this._menuFsBtn, 1.5);
@@ -628,8 +600,16 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
       this._expandHitArea(this._menuFsBtn, 1.5);
       this._toggleFullscreen();
     }, () => this._menuActive);
-    this._menuInfoBtn = null;
-    this._menuUpdateLogBtn = null;
+    this._menuInfoBtn = this.add.image(screenWidth + 20, 33, "GJ_GameSheet03", "communityCreditsBtn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
+    this._expandHitArea(this._menuInfoBtn, 1.5);
+    this._makeBouncyButton(this._menuInfoBtn, 0.64, () => {
+      this._buildInfoPopup();
+    }, () => this._menuActive && !this._infoPopup);
+this._menuUpdateLogBtn = this.add.image(screenWidth - 30 - 50, 33, "GJ_WebSheet", "GJ_infoIcon_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
+    this._expandHitArea(this._menuUpdateLogBtn, 1.5);
+    this._makeBouncyButton(this._menuUpdateLogBtn, 0.64, () => {
+      this._buildUpdateLogPopup();
+    }, () => this._menuActive && !this._updateLogPopup);
     this._menuSettingsBtn = this.add.image(centerX + 92, screenHeight - 90, "GJ_GameSheet03", "GJ_optionsBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._expandHitArea(this._menuSettingsBtn, 1);
     this._makeBouncyButton(this._menuSettingsBtn, 1, () => {
@@ -640,11 +620,10 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
     this._makeBouncyButton(this._menuStatsBtn, 1, () => {
       this._showStatsScreen();
     }, () => this._menuActive);
-    this._menuAchievementsBtn = this.add.image(centerX - 12, screenHeight - 90, "GJ_GameSheet03", "GJ_achBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
+    this._menuAchievementsBtn = this.add.image(centerX - 12, screenHeight - 90, "GJ_GameSheet03", "GJ_achBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setTint(0x666666);
     this._expandHitArea(this._menuAchievementsBtn, 1);
     this._makeBouncyButton(this._menuAchievementsBtn, 1, () => {
-      this._showAchievementsScreen();
-    }, () => this._menuActive && !this._achievementsLayerInternal);
+    }, () => this._menuActive);
     this._menuNewgroundsBtn = this.add.image(centerX + 312, screenHeight - 90, "GJ_GameSheet03", "GJ_ngBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._expandHitArea(this._menuNewgroundsBtn, 1);
     this._makeBouncyButton(this._menuNewgroundsBtn, 1, () => {
@@ -3865,7 +3844,14 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
     this._practiceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
     this._practiceKey.on("down", () => {
       if (!this._menuActive && !this._slideIn) {
-        this._setPracticeMode(!this._practicedMode.practiceMode, true);
+        const isPracticeMode = this._practicedMode.togglePracticeMode();
+        if (this._checkpointBtnContainer) {
+          this._checkpointBtnContainer.setVisible(isPracticeMode);
+        }
+        if (this._practiceModeBarContainer) {
+          this._practiceModeBarContainer.setVisible(isPracticeMode);
+        }
+        this._audio.startMusic(this._getCurrentMusicSyncOffset());
       }
     });
     this._saveCheckpointKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
@@ -3887,22 +3873,22 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
     this._sfxVolume = localStorage.getItem("userSfxVol") ?? 1;
     this._initMacroBot();
     this.input.on("pointerdown", () => {
-      if (!this._menuActive && !this._paused && !this._modMenuOpen && !this._levelSelectOverlay && !this._levelWon && !window.isEditor) {
+      if (!this._menuActive && !this._paused && !this._levelSelectOverlay && !this._levelWon && !window.isEditor) {
         this._pushButton();
       }
     });
     this.input.on("pointerup", () => {
-      if (!this._menuActive && !this._paused && !this._modMenuOpen && !this._levelSelectOverlay && !this._levelWon && !window.isEditor) {
+      if (!this._menuActive && !this._paused && !this._levelSelectOverlay && !this._levelWon && !window.isEditor) {
         this._releaseButton();
       }
     });
     if (!window.gdpointerup) {
       window.gdpointerup = true;
-      window.addEventListener("pointerup", () => this._releaseButton());
+      window.addEventListener("pointerup", () => this._releaseButton(true));
     }
     if (!window.gdtouchend) {
       window.gdtouchend = true;
-      window.addEventListener("touchend", () => this._releaseButton());
+      window.addEventListener("touchend", () => this._releaseButton(true));
     }
     this.scale.on("enterfullscreen", () => this._onFullscreenChange(true));
     this.scale.on("leavefullscreen", () => this._onFullscreenChange(false));
@@ -3910,7 +3896,6 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
     this._buildHUD();
     this._createStartPosGui();
     this._loadSettings();
-    window.webDashersModMenu?.attachScene?.(this);
 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
@@ -3964,8 +3949,12 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
     } else if (this._audio.isplaying() && !shouldPlayMenuMusic) {
       this._audio.stopMusic();
     }
+    if (!window.updateLogShown) {
+      this._buildUpdateLogPopup();
+      window.updateLogShown = true;
+    }
     if (window.levelID) {
-      this._openSearchMenu();
+        this._openSearchMenu();
     }
     if (this.game.registry.get("autoStartGame")) {
       if (!window.settingsMap) {
@@ -4787,22 +4776,6 @@ this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFulls
       this._glitterEmitter.timeScale = timeScale;
     }
   }
-  _setPracticeMode(enabled, restartMusic = false) {
-    const shouldEnable = !!enabled;
-    if (!!this._practicedMode.practiceMode !== shouldEnable) {
-      this._practicedMode.togglePracticeMode();
-    }
-    if (this._checkpointBtnContainer) {
-      this._checkpointBtnContainer.setVisible(shouldEnable);
-    }
-    if (this._practiceModeBarContainer) {
-      this._practiceModeBarContainer.setVisible(shouldEnable);
-    }
-    if (restartMusic && !this._menuActive) {
-      this._audio.startMusic(this._getCurrentMusicSyncOffset());
-    }
-    return shouldEnable;
-  }
   _pauseGame() {
     if (!this._paused && !this._menuActive && !this._slideIn && !this._levelWon) {
       this._paused = true;
@@ -4938,7 +4911,9 @@ _buildPauseOverlay() {
     this._pauseContainer.add(settingsBtn);
     this._makeBouncyButton(settingsBtn, 0.64, () => this._buildSettingsPopup());
 
-    this._macroBtn = null;
+    this._macroBtn = this.add.image(textureY + _0x4eb71b / 2 - 60, 150, "macroBot").setScale(0.4).setInteractive();
+    this._pauseContainer.add(this._macroBtn);
+    this._makeBouncyButton(this._macroBtn, 0.4, () => this._buildMacroPopup());
 
     this._pauseContainer.add(this.add.bitmapText(textureY, 65, "bigFont", window.currentlevel[1], 40).setOrigin(0.5, 0.5));
 
@@ -5075,7 +5050,7 @@ _buildSettingsPopup() {
         this._settingsPopup = null;
     });
 
-    const pages = ["General"];
+    const pages = ["Gameplay", "Visual", "Advanced", "Performance"];
     let currentPage = 0;
     const pageTitle = this.add.bitmapText(0, -(panelHeight / 2) + 45, "bigFont", pages[currentPage], 40).setOrigin(0.5);
     innerContainer.add(pageTitle);
@@ -5085,10 +5060,6 @@ _buildSettingsPopup() {
     const rightArrow = this.add.image((panelWidth / 2) + 130, 0, "GJ_GameSheet03", "GJ_arrow_01_001.png")
         .setInteractive().setFlipX(true);
     innerContainer.add(rightArrow);
-    if (pages.length <= 1) {
-        leftArrow.setVisible(false).disableInteractive();
-        rightArrow.setVisible(false).disableInteractive();
-    }
     const column1X = -200;
     const column2X = 200;
     const checkOffset = -120;
@@ -5311,26 +5282,6 @@ _buildSettingsPopup() {
             }
             originalDestroy.apply(container, args);
         };
-    };
-
-    const buildGeneralPage = (container) => {
-        createToggle(container, column1X, startY, "Use Proxy (for schools)",
-            () => !window.useDirectInternet,
-            (v) => { window.useDirectInternet = !v; },
-            null,
-            22,
-            true,
-            "Use Proxy (for schools)"
-        );
-
-        createToggle(container, column2X, startY, "Default Mini Icon",
-            () => window.enableMiniIcon,
-            (v) => { window.enableMiniIcon = v; },
-            null,
-            22,
-            true,
-            "Default Mini Icon"
-        );
     };
 
     const buildGameplayPage = (container) => {
@@ -5562,7 +5513,10 @@ _buildSettingsPopup() {
         innerContainer.add(pageContainer);
         pageTitle.setText(pages[idx]);
         
-        buildGeneralPage(pageContainer);
+        if (idx === 0) buildGameplayPage(pageContainer);
+        else if (idx === 1) buildVisualPage(pageContainer);
+        else if (idx === 2) buildAdvancedPage(pageContainer);
+        else if (idx === 3) buildPerformancePage(pageContainer);
     };
 
     buildPage(0);
@@ -5600,6 +5554,7 @@ _buildSettingsPopup() {
         showObjectIds: window.showObjectIds,
         showCPS: window.showCPS,
         speedHack: window.speedHack,
+        macroBot: window.macroBot,
         practiceMusicSync: window.practiceMusicSync,
         showGlow: window.showGlow,
         showEditorGlow: window.showEditorGlow,
@@ -5631,6 +5586,7 @@ _buildSettingsPopup() {
         showObjectIds: false,
         showCPS: false,
         speedHack: 1.0,
+        macroBot: false,
         practiceMusicSync: false,
         showGlow: true,
         showEditorGlow: false,
@@ -5656,6 +5612,7 @@ _buildSettingsPopup() {
     window.hitboxesOnDeath = data.hitboxesOnDeath;
     window.showCPS = data.showCPS;
     window.speedHack = data.speedHack;
+    window.macroBot = data.macroBot;
     window.practiceMusicSync = !!data.practiceMusicSync;
     window.showGlow = data.showGlow;
     window.showEditorGlow = data.showEditorGlow;
@@ -5690,7 +5647,7 @@ _buildSettingsPopup() {
           this._macroName = this._macroBot?.meta?.name || null;
       }
       if (this._macroLoaded === undefined) {
-          this._macroLoaded = !!this._macroName || !!(this._macroBot?.inputs?.length || this._macroBot?.frames?.length);
+          this._macroLoaded = !!this._macroName || (this._macroBot && this._macroBot.frames && this._macroBot.frames.length > 0);
       }
 
       const loadedNameText = this.add.bitmapText(centerX, centerY - (panelHeight / 2) + 95, "goldFont", this._macroLoaded ? `Currently loaded "${this._macroName || 'macro'}"` : "No macro loaded", 24).setOrigin(0.5);
@@ -5782,7 +5739,7 @@ _buildSettingsPopup() {
           if (this._macroBot?.playing) return;
           if (this._macroBot?.recording) return;
           if (!this._macroLoaded) return;
-          this._exportMacroFile(this._macroName ? `${this._macroName}.gdr2` : null, "gdr2");
+          this._exportMacroFile(this._macroName ? `${this._macroName}.wbgdr2` : null);
       });
 
       this._makeBouncyButton(createBtn, 1.2, () => {
@@ -7013,7 +6970,6 @@ _showwippopup() {
     this._bestPercent = parseFloat(localStorage.getItem("bestPercent_" + (window.currentlevel[2] || "level_1")) || "0");
     this._practiceBestPercent = parseFloat(localStorage.getItem("practiceBestPercent_" + (window.currentlevel[2] || "level_1")) || "0");
     
-    this._modRunTainted = false;
     this._menuActive = false;
     this._practiceBypassPending = false;
     this._slideIn = true;
@@ -7155,10 +7111,8 @@ _showwippopup() {
     this._player2.setRobotVisible(false);
     this._levelAttempts = 1;
     this._levelJumps = 0;
-    if (!window.freezeAttempts) {
-      this._attempts++;
-      localStorage.setItem("gd_totalAttempts", this._attempts);
-    }
+    this._attempts++;
+    localStorage.setItem("gd_totalAttempts", this._attempts);
     this._attemptsLabel.setText("Attempt " + this._levelAttempts);
     this._attemptsLabel.setVisible(true);
     this._positionAttemptsLabel();
@@ -7179,9 +7133,6 @@ _showwippopup() {
     }
 
     this._applyLevelStartOptions();
-    if (window.autoPracticeMode) {
-      this._setPracticeMode(true, false);
-    }
   }
   _pushButton(ignoreMacro = false) {
     const objectsUnderPointer = this.input.manager.hitTest(
@@ -7202,14 +7153,10 @@ _showwippopup() {
     }
 
     if (!this._slideIn && !this._state.isDead && !cancelInput) {
-      const wasInputDown = !!this._state.upKeyDown;
       this._state.upKeyDown = true;
       this._state.upKeyPressed = true;
       this._state.queuedHold = true;
       this._state._orbActivationConsumedForPress = false;
-      if (!ignoreMacro && !wasInputDown) {
-        this._macroBot?.recordInput?.(this._physicsFrame + 1, true);
-      }
       if (this._isDual && !this._state2.isDead) {
         this._state2.upKeyDown = true;
         this._state2.upKeyPressed = true;
@@ -7218,9 +7165,6 @@ _showwippopup() {
       }
       const _dualImmediateBeforeGravity = !!this._state.gravityFlipped;
       let _primaryImmediateJumped = false;
-      if (window.jumpHack && !this._state.isFlying && !this._state.isWave && !this._state.isUfo) {
-        this._state.canJump = true;
-      }
       if (!this._state.isFlying && !this._state.isWave && !this._state.isUfo && this._state.canJump) {
         this._player.updateJump(0);
         _primaryImmediateJumped = true;
@@ -7239,9 +7183,6 @@ _showwippopup() {
         });
       }
       if (this._isDual && !this._state2.isDead) {
-        if (window.jumpHack && !this._state2.isFlying && !this._state2.isWave && !this._state2.isUfo) {
-          this._state2.canJump = true;
-        }
         if (this._shouldSuppressDualGravityAction(this._state2, _primaryImmediateGravitySynced)) {
           this._state2.upKeyPressed = false;
           this._state2.queuedHold = false;
@@ -7272,7 +7213,6 @@ _showwippopup() {
 
   }
   _releaseButton(ignoreMacro = false) {
-    const wasInputDown = !!this._state.upKeyDown;
     this._state.upKeyDown = false;
     this._state.upKeyPressed = false;
     this._state.queuedHold = false;
@@ -7281,9 +7221,6 @@ _showwippopup() {
     this._state2.upKeyPressed = false;
     this._state2.queuedHold = false;
     this._state2._orbActivationConsumedForPress = false;
-    if (!ignoreMacro && wasInputDown) {
-      this._macroBot?.recordInput?.(this._physicsFrame + 1, false);
-    }
   }
   _initMacroBot() {
     this._macroBot = new MacroBot(this);
@@ -7293,7 +7230,6 @@ _showwippopup() {
     if (!this._macroBot) this._initMacroBot();
     this._macroBot.startRecording({
       level: window.currentlevel?.[2] || "",
-      levelName: window.currentlevel?.[1] || "",
       ...meta
     });
   }
@@ -7302,25 +7238,23 @@ _showwippopup() {
     return this._macroBot.stopRecording();
   }
   _startMacroPlayback(macroData) {
+    console.log(macroData);
     if (!this._macroBot) this._initMacroBot();
     this._macroBot.startPlayback(macroData);
   }
   _stopMacroPlayback() {
     if (this._macroBot) this._macroBot.stopPlayback();
   }
-  _exportMacroFile(filename = null, format = "gdr2") {
+  _exportMacroFile(filename = null) {
     if (!this._macroBot) return;
-    const extension = format === "gdr" ? ".gdr" : ".gdr2";
-    const requestedName = filename || `${window.currentlevel?.[2] || "macro"}${extension}`;
-    const baseName = requestedName.replace(/\.(?:gdr2?|json)$/i, "");
-    const safeName = `${baseName}${extension}`
+    const safeName = (filename || `${window.currentlevel?.[2] || "macro"}.gdr`)
       .replace(/[^\w.\-]+/g, "_");
-    this._macroBot.download(safeName, format);
+    this._macroBot.download(safeName);
   }
   _importMacroFile() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
-    fileInput.accept = ".gdr,.gdr2";
+    fileInput.accept = ".wbgdr2";
 
     fileInput.onchange = async (e) => {
       const file = e.target.files?.[0];
@@ -7331,8 +7265,6 @@ _showwippopup() {
         
         const macroData = await this._macroBot.importFile(file);
         this._macroBot.frames = Array.isArray(macroData.frames) ? macroData.frames.slice() : [];
-        this._macroBot.inputs = window.GDRCodec?.normalizeInputs?.(macroData.inputs) || [];
-        this._macroBot.endFrame = Math.max(0, Math.trunc(Number(macroData.durationFrames) || 0));
         const fallback = file.name.replace(/\.[^/.]+$/, "");
         const macroName = macroData.meta?.name || fallback;
 
@@ -7440,12 +7372,9 @@ _showwippopup() {
     this._physicsFrame = 0;
   }
   _restartLevel() {
-    this._modRunTainted = false;
-    if (!window.freezeAttempts) {
-      this._attempts++;
-      localStorage.setItem("gd_totalAttempts", this._attempts);
-      this._levelAttempts++;
-    }
+    this._attempts++;
+    localStorage.setItem("gd_totalAttempts", this._attempts);
+    this._levelAttempts++;
     this._levelJumps = 0;
     const _0x2ba78a = this._cameraX;
     if (this._levelWon && this._practicedMode.practiceMode) {
@@ -8027,13 +7956,6 @@ _showwippopup() {
     return _0xd8019e * 60;
   }
   update(_0x54fa47, deltaTime) {
-    if (window.webDashersModMenu?.isUnsafeRun?.()) {
-      this._modRunTainted = true;
-    }
-    if (this._modMenuOpen || window.webDashersModMenu?.isOpen?.()) {
-      this._deltaBuffer = 0;
-      return;
-    }
     if (window.isEditor) {
         if (this._editorPlaytestActive && !this._editorPlaytestPaused) {
             this._levelEditor._updateEditorPlaytest(deltaTime);
@@ -8124,6 +8046,10 @@ _showwippopup() {
 
     this._bottedIndicator.setVisible(this._macroBot?.playing);
     this._bottedIndicator.setPosition(10, 10 + (window.noClip * 20) + (window.noClip && window.noClipAccuracy * 40) + (window.showCPS * 20));
+    if (this._macroBtn){
+      this._macroBtn.setVisible(window.macroBot);
+    }
+
     this._fpsAccum += deltaTime;
     this._fpsFrames++;
     if (this._fpsAccum >= 250) {
@@ -8334,18 +8260,13 @@ _showwippopup() {
         let _0x435587 = this._level.endXPos || 6000;
         let _0x169d53 = this._playerWorldX;
         this._lastPercent = Math.min(99, Math.max(0, Math.floor(_0x169d53 / _0x435587 * 100)));
-        const _modProgressBlocked = !!window.webDashersModMenu?.isSafeModeActive?.();
-        const _isMainLevelDeath = Array.isArray(window.allLevels) && window.allLevels.some(level => level?.[2] === window.currentlevel?.[2]);
-        if (!_modProgressBlocked && !this._practicedMode.practiceMode && _isMainLevelDeath && this._lastPercent > 95) {
-          localStorage.setItem("gd_soClose", "true");
-        }
-        if (!_modProgressBlocked && this._lastPercent > this._bestPercent && !this._practicedMode.practiceMode) {
+        if (this._lastPercent > this._bestPercent && !this._practicedMode.practiceMode) {
           this._bestPercent = this._lastPercent;
           localStorage.setItem("bestPercent_" + (window.currentlevel[2] || "level_1"), this._bestPercent);
           this._hadNewBest = true;
           this._showNewBest();
         }
-        if (!_modProgressBlocked && this._practicedMode.practiceMode) {
+        if (this._practicedMode.practiceMode) {
           const pracKey = "practiceBestPercent_" + (window.currentlevel[2] || "level_1");
           const prevPracticeBest = parseFloat(localStorage.getItem(pracKey) || "0");
           if (this._lastPercent > prevPracticeBest) {
@@ -9153,8 +9074,7 @@ _applyMirrorEffect() {
     this._player.playEndAnimation(this._level.endXPos, () => this._levelComplete(), this._endPortalGameY);
   }
   _levelComplete() {
-    const _modProgressBlocked = !!window.webDashersModMenu?.isSafeModeActive?.();
-    if (!_modProgressBlocked && !this._practicedMode.practiceMode) {
+    if (!this._practicedMode.practiceMode) {
       const isNonPersistentCoinLevel = window.isEditor || this._level?._isStoredUserLevel?.();
       if (isNonPersistentCoinLevel) {
         this._level.resetCoinsForEditorCompletion?.();
@@ -9174,28 +9094,7 @@ _applyMirrorEffect() {
         window._completedLevels = completedSet.length;
         localStorage.setItem("gd_completedLevels", window._completedLevels);
       }
-      if (String(levelId).startsWith("online_")) {
-        try {
-          const historyKey = "gd_completedOnlineLevels";
-          const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
-          const safeHistory = Array.isArray(history) ? history : [];
-          const levelData = window._onlineReturnToPlayMenu?.lvl || window._selectedLevelData || {};
-          const existing = safeHistory.find(level => String(level?.id) === String(levelId));
-          const record = {
-            id: String(levelId),
-            difficulty: Number.isFinite(Number(levelData.difficulty)) ? Number(levelData.difficulty) : null,
-            stars: Number.isFinite(Number(levelData.stars)) ? Number(levelData.stars) : null
-          };
-          if (existing) {
-            if (record.difficulty !== null) existing.difficulty = record.difficulty;
-            if (record.stars !== null) existing.stars = record.stars;
-          } else {
-            safeHistory.push(record);
-          }
-          localStorage.setItem(historyKey, JSON.stringify(safeHistory));
-        } catch (_error) {}
-      }
-    } else if (!_modProgressBlocked) {
+    } else {
       this._practiceBestPercent = 100;
       localStorage.setItem("practiceBestPercent_" + (window.currentlevel[2] || "level_1"), 100);
       if (this._updatePracticeHUDBar) this._updatePracticeHUDBar();
@@ -9523,6 +9422,16 @@ _applyMirrorEffect() {
     _0x2de55e.width;
     this._endStarX = containerX + _0x45540f;
     this._endStarY = _0x241209 - 77.5;
+    if (window.macroBot){
+      const botMenuBtn = this.add.image(containerX - 225, 255, "macroBot").setScale(0.4).setInteractive();
+      this._endLayerInternal.add(botMenuBtn);
+      this._makeBouncyButton(botMenuBtn, 0.4, () => {
+          this._buildMacroPopup();
+          if (this._macroPopup) {
+              this._macroPopup.setDepth(300); 
+          }
+      });
+    }
     const _0x45fc2b = [{
       frame: "GJ_replayBtn_001.png",
       dx: -200,
@@ -9884,7 +9793,9 @@ window.open("https://github.com/web-dashers/web-dashers.github.io", "_blank"); }
     _makeSettingsBtn(_sColR, _sRow1Y, "How To Play", _sBtnW2, true, () => { this._buildHowToPlayPopup(); });
     _makeSettingsBtn(_sColL, _sRow2Y, "Options",    _sBtnW2, true,  () => { this._buildSettingsPopup(); });
     _makeSettingsBtn(_sColR, _sRow2Y, "Graphics",   _sBtnW2, false, null);
+    _makeSettingsBtn(_sCol3L, _sRow3Y, "Rate",      _sBtnW3, true, () => { this._redirectRate(); });
     _makeSettingsBtn(_sCol3M, _sRow3Y, "Songs",     _sBtnW3, true, () => { this._hideSettingsScreen(() => this.time.delayedCall(150, () => this._buildsongspopup())); });
+    _makeSettingsBtn(_sCol3R, _sRow3Y, "Help",      _sBtnW3, true, () => { this._hideSettingsScreen(() => this.time.delayedCall(150, () => this._buildhelppopup())); });
 
     const lockIcon = this.add.image(containerX + 535, 30, "GJ_GameSheet03", "GJ_lockGray_001.png").setFlipX(false).setFlipY(false);
     lockIcon.setScale(0.9);
@@ -10124,294 +10035,6 @@ window.open("https://github.com/web-dashers/web-dashers.github.io", "_blank"); }
       onComplete: _0x272eb1
     });
   }
-  _showAchievementsScreen() {
-    if (this._achievementsLayerInternal) return;
-
-    const achievements = Array.isArray(window.allAchievements) ? window.allAchievements : [];
-    const perPage = 10;
-    const pageCount = Math.max(1, Math.ceil(achievements.length / perPage));
-    const cx = screenWidth / 2;
-    const panelWidth = 890;
-    const panelLeft = cx - panelWidth / 2;
-    const panelRight = cx + panelWidth / 2;
-    // Let the scrolling rows continue underneath the opaque horizontal frame
-    // pieces so no strip of the menu background can show through at either edge.
-    const contentTop = 95;
-    const contentBottom = 555;
-    const viewportHeight = contentBottom - contentTop;
-    const rowHeight = viewportHeight / 2.8;
-    const rowLeft = panelLeft + 24;
-    const rowRight = panelRight - 24;
-    const rowWidth = rowRight - rowLeft;
-
-    this._achievementPage = Math.max(0, Math.min(this._achievementPage || 0, pageCount - 1));
-    this._achievementsLayerOverlay = this.add.rectangle(cx, screenHeight / 2, screenWidth, screenHeight, 0x000000, 0)
-      .setScrollFactor(0)
-      .setDepth(220)
-      .setInteractive();
-    this._achievementsLayerInternal = this.add.container(0, -640).setScrollFactor(0).setDepth(221);
-
-    this.tweens.add({
-      targets: this._achievementsLayerOverlay,
-      alpha: 100 / 255,
-      duration: 350
-    });
-    const slide = { progress: 0 };
-    this.tweens.add({
-      targets: slide,
-      progress: 1,
-      duration: 500,
-      ease: "Quad.Out",
-      onUpdate: () => {
-        if (this._achievementsLayerInternal) {
-          this._achievementsLayerInternal.y = slide.progress * 650 - 640;
-        }
-      }
-    });
-
-    const panel = this._achievementsLayerInternal;
-    panel.add(this.add.rectangle(cx, (contentTop + contentBottom) / 2, rowWidth, viewportHeight, 0xac531e));
-
-    const rowsContainer = this.add.container(0, 0);
-    panel.add(rowsContainer);
-    const rowsMaskShape = this.add.graphics().setScrollFactor(0).setVisible(false);
-    const rowsMask = rowsMaskShape.createGeometryMask();
-    rowsContainer.setMask(rowsMask);
-    const updateRowsMask = () => {
-      if (!panel?.active || !rowsMaskShape?.active) return;
-      rowsMaskShape.clear();
-      rowsMaskShape.fillStyle(0xffffff, 1);
-      rowsMaskShape.fillRect(rowLeft, contentTop + panel.y, rowWidth, viewportHeight);
-    };
-    this.events.on("postupdate", updateRowsMask);
-    updateRowsMask();
-    this._achievementVisualCleanup = () => {
-      this.events.off("postupdate", updateRowsMask);
-      rowsContainer.clearMask();
-      rowsMask.destroy();
-      rowsMaskShape.destroy();
-    };
-
-    const topFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_top_001.png");
-    const bottomFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_bottom_001.png");
-    const sideFrame = this.textures.getFrame("GJ_WebSheet", "GJ_table_side_001.png");
-    const top = this.add.image(cx, 71, "GJ_WebSheet", "GJ_table_top_001.png");
-    const bottom = this.add.image(cx, 575, "GJ_WebSheet", "GJ_table_bottom_001.png");
-    if (topFrame) top.setScale(panelWidth / topFrame.width, 1);
-    if (bottomFrame) bottom.setScale(panelWidth / bottomFrame.width, 1);
-    panel.add([top, bottom]);
-
-    // The side pieces belong between the header and footer. The horizontal
-    // pieces render after them and cover the small overlap at each join.
-    const sideTop = contentTop + 5;
-    const sideHeight = contentBottom - contentTop - 15;
-    const sideScaleY = sideFrame ? sideHeight / sideFrame.height : 1;
-    panel.add([
-      this.add.image(panelLeft - 22, sideTop, "GJ_WebSheet", "GJ_table_side_001.png").setOrigin(0, 0).setScale(1, sideScaleY),
-      this.add.image(panelRight + 22, sideTop, "GJ_WebSheet", "GJ_table_side_001.png").setOrigin(1, 0).setFlipX(true).setScale(1, sideScaleY)
-    ]);
-
-    panel.add(this.add.bitmapText(cx, 68, "bigFont", "ACHIEVEMENTS", 49).setOrigin(0.5));
-
-    const counterText = this.add.bitmapText(panelRight - 2, 28, "goldFont", "", 31).setOrigin(1, 0.5);
-    panel.add(counterText);
-
-    const backButton = this.add.image(43, 34, "GJ_GameSheet03", "GJ_arrow_03_001.png").setInteractive();
-    panel.add(backButton);
-    this._makeBouncyButton(backButton, 1, () => this._hideAchievementsScreen());
-
-    const previousButton = this.add.image(panelLeft - 52, (contentTop + contentBottom) / 2, "GJ_GameSheet03", "GJ_arrow_01_001.png")
-      .setScale(0.78);
-    const nextButton = this.add.image(panelRight + 52, (contentTop + contentBottom) / 2, "GJ_GameSheet03", "GJ_arrow_01_001.png")
-      .setScale(0.78)
-      .setFlipX(true);
-    const previousHitArea = this.add.rectangle(previousButton.x, previousButton.y, 92, 120, 0x000000, 0).setInteractive();
-    const nextHitArea = this.add.rectangle(nextButton.x, nextButton.y, 92, 120, 0x000000, 0).setInteractive();
-    panel.add([previousButton, nextButton, previousHitArea, nextHitArea]);
-
-    const rowObjects = [];
-    const addRowObject = (object) => {
-      rowsContainer.add(object);
-      rowObjects.push(object);
-      return object;
-    };
-    const clearRows = () => {
-      while (rowObjects.length) {
-        const object = rowObjects.pop();
-        if (object?.destroy) object.destroy();
-      }
-    };
-
-    const fitText = (text, maxWidth) => {
-      if (!text || !maxWidth || text.width <= maxWidth) return;
-      text.setScale(Math.max(0.6, maxWidth / text.width));
-    };
-
-    const renderRewardIcon = (achievement, x, y, completed, showPercent) => {
-      const iconFrame = achievement?.icon?.frame;
-      const frameInfo = iconFrame && typeof getAtlasFrame === "function" ? getAtlasFrame(this, iconFrame) : null;
-      if (!frameInfo) return;
-
-      const targetSize = showPercent ? 68 : 78;
-      const iconY = y + (showPercent ? -10 : 0);
-      const frame = this.textures.getFrame(frameInfo.atlas, frameInfo.frame);
-      const scale = frame ? Math.min(targetSize / frame.width, targetSize / frame.height) : 0.6;
-      const overlayName = iconFrame.replace(/_001\.png$/, "_2_001.png");
-      const overlayInfo = getAtlasFrame(this, overlayName);
-      if (overlayInfo) {
-        addRowObject(this.add.image(x, iconY, overlayInfo.atlas, overlayInfo.frame)
-          .setScale(scale)
-          .setTint(completed ? window.secondaryColor : 0x777777)
-          .setAlpha(completed ? 1 : 0.72));
-      }
-      addRowObject(this.add.image(x, iconY, frameInfo.atlas, frameInfo.frame)
-        .setScale(scale)
-        .setTint(completed ? window.mainColor : 0x777777)
-        .setAlpha(completed ? 1 : 0.72));
-
-      if (!completed) {
-        addRowObject(this.add.image(x, iconY, "GJ_GameSheet03", "GJ_lockGray_001.png").setScale(showPercent ? 0.72 : 0.8));
-      }
-    };
-
-    let scrollOffset = 0;
-    let maxScrollOffset = 0;
-    const applyScroll = () => {
-      rowsContainer.y = -scrollOffset;
-    };
-    const setScroll = (value) => {
-      scrollOffset = Phaser.Math.Clamp(value, 0, maxScrollOffset);
-      applyScroll();
-    };
-
-    const renderPage = (requestedPage) => {
-      this._achievementPage = Math.max(0, Math.min(requestedPage, pageCount - 1));
-      clearRows();
-      const firstIndex = this._achievementPage * perPage;
-      const pageItems = achievements.slice(firstIndex, firstIndex + perPage);
-      const lastIndex = firstIndex + pageItems.length;
-      counterText.setText(`${firstIndex + 1} TO ${lastIndex} OF ${achievements.length}`);
-      maxScrollOffset = Math.max(0, pageItems.length * rowHeight - viewportHeight);
-      setScroll(0);
-
-      previousButton.setVisible(this._achievementPage > 0);
-      nextButton.setVisible(this._achievementPage < pageCount - 1);
-      previousHitArea.setVisible(previousButton.visible).disableInteractive();
-      nextHitArea.setVisible(nextButton.visible).disableInteractive();
-      if (previousButton.visible) previousHitArea.setInteractive();
-      if (nextButton.visible) nextHitArea.setInteractive();
-
-      pageItems.forEach((achievement, index) => {
-        const progress = window.AchievementProgress?.evaluate?.(achievement) || {
-          completed: false,
-          percent: 0,
-          showPercent: false
-        };
-        const rowCenterY = contentTop + index * rowHeight + rowHeight / 2;
-        const iconX = rowLeft + 69;
-        const textX = rowLeft + 137;
-        const textMaxWidth = rowRight - textX - 72;
-
-        addRowObject(this.add.rectangle(cx, rowCenterY, rowWidth, rowHeight,
-          index % 2 === 0 ? 0xac531e : 0xcf6d30));
-        if (index > 0) {
-          addRowObject(this.add.rectangle(cx, contentTop + index * rowHeight, rowWidth, 1.5, 0x54250f, 0.7));
-        }
-
-        renderRewardIcon(achievement, iconX, rowCenterY, progress.completed, progress.showPercent);
-        if (progress.showPercent) {
-          addRowObject(this.add.bitmapText(iconX, rowCenterY + 43, "goldFont", `${progress.percent}%`, 22).setOrigin(0.5));
-        }
-
-        const title = addRowObject(this.add.bitmapText(textX, rowCenterY - 28, "goldFont", achievement.name, 31).setOrigin(0, 0.5));
-        fitText(title, textMaxWidth);
-        const description = addRowObject(this.add.bitmapText(textX, rowCenterY + 20, "bigFont", achievement.description, 25).setOrigin(0, 0.5));
-        fitText(description, textMaxWidth);
-
-        if (progress.completed) {
-          addRowObject(this.add.image(rowRight - 35, rowCenterY, "GJ_GameSheet03", "GJ_checkOn_001.png").setScale(0.68));
-        }
-      });
-    };
-
-    this._makeCompositeBouncyButton(previousHitArea, previousButton, 0.78, () => renderPage(this._achievementPage - 1));
-    this._makeCompositeBouncyButton(nextHitArea, nextButton, 0.78, () => renderPage(this._achievementPage + 1));
-
-    const isInsideViewport = (pointer) => {
-      const localY = pointer.y - panel.y;
-      return pointer.x >= rowLeft && pointer.x <= rowRight && localY >= contentTop && localY <= contentBottom;
-    };
-    const onWheel = (pointer, _gameObjects, _deltaX, deltaY) => {
-      if (!deltaY || !isInsideViewport(pointer)) return;
-      setScroll(scrollOffset + deltaY * 0.65);
-    };
-    let dragStartY = null;
-    let dragStartScroll = 0;
-    const onPointerDown = (pointer) => {
-      if (!isInsideViewport(pointer)) return;
-      dragStartY = pointer.y;
-      dragStartScroll = scrollOffset;
-    };
-    const onPointerMove = (pointer) => {
-      if (dragStartY === null || !pointer.isDown) return;
-      setScroll(dragStartScroll + dragStartY - pointer.y);
-    };
-    const onPointerUp = () => {
-      dragStartY = null;
-    };
-    const onKeyDown = (event) => {
-      if (!this._achievementsLayerInternal) return;
-      if (event.key === "Escape") this._hideAchievementsScreen();
-      if (event.key === "ArrowLeft" || event.key === "PageUp") renderPage(this._achievementPage - 1);
-      if (event.key === "ArrowRight" || event.key === "PageDown") renderPage(this._achievementPage + 1);
-    };
-
-    this.input.on("wheel", onWheel);
-    this.input.on("pointerdown", onPointerDown);
-    this.input.on("pointermove", onPointerMove);
-    this.input.on("pointerup", onPointerUp);
-    this.input.keyboard?.on("keydown", onKeyDown);
-    this._achievementInputCleanup = () => {
-      this.input.off("wheel", onWheel);
-      this.input.off("pointerdown", onPointerDown);
-      this.input.off("pointermove", onPointerMove);
-      this.input.off("pointerup", onPointerUp);
-      this.input.keyboard?.off("keydown", onKeyDown);
-    };
-
-    renderPage(this._achievementPage);
-  }
-
-  _hideAchievementsScreen() {
-    if (!this._achievementsLayerInternal || this._achievementsClosing) return;
-    this._achievementsClosing = true;
-    this._achievementInputCleanup?.();
-    this._achievementInputCleanup = null;
-
-    const overlay = this._achievementsLayerOverlay;
-    const panel = this._achievementsLayerInternal;
-    this.tweens.add({ targets: overlay, alpha: 0, duration: 300 });
-    const slide = { progress: 1 };
-    this.tweens.add({
-      targets: slide,
-      progress: 0,
-      duration: 420,
-      ease: "Quad.In",
-      onUpdate: () => {
-        if (panel?.active) panel.y = slide.progress * 650 - 640;
-      },
-      onComplete: () => {
-        this._achievementVisualCleanup?.();
-        this._achievementVisualCleanup = null;
-        overlay?.destroy();
-        panel?.destroy(true);
-        if (this._achievementsLayerOverlay === overlay) this._achievementsLayerOverlay = null;
-        if (this._achievementsLayerInternal === panel) this._achievementsLayerInternal = null;
-        this._achievementsClosing = false;
-      }
-    });
-  }
-
   _showStatsScreen() {
     if (this._pauseBtn) {
       this.tweens.add({
